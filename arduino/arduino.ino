@@ -1,12 +1,5 @@
-/*
-    note: need add library Adafruit_BMP280 from library manage
-    Github: https://github.com/adafruit/Adafruit_BMP280_Library
-*/
-
 #include <M5StickC.h>
 #include <Wire.h>
-
-#include "Adafruit_Sensor.h"
 #include "bmm150.h"
 
 #define I2C_ADDRESS (0x10)
@@ -211,18 +204,26 @@ void bmm150_error_codes_print_result(const char api_name[], int8_t rslt) {
   }
 }
 
+// Globals
 int8_t rslt;
-  /* Sensor initialization configuration. */
 struct bmm150_dev dev;
+
+float accX = 0.0F;
+float accY = 0.0F;
+float accZ = 0.0F;
+float gyroX = 0.0F;
+float gyroY = 0.0F;
+float gyroZ = 0.0F;
 
 void setup() {
   // put your setup code here, to run once:
   M5.begin();
+  M5.Sh200Q.Init();
   //Wire.begin(0, 26);
   M5.Lcd.setRotation(3);
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.setCursor(0, 0, 2);
-  M5.Lcd.println("ENV TEST");
+  M5.Lcd.println("BMEVIMIMB05 sensor");
   pinMode(M5_BUTTON_HOME, INPUT);
 
   //Serial.begin(115200);
@@ -308,6 +309,11 @@ static int8_t get_data(struct bmm150_dev *dev) {
 
       /* Unit for magnetometer data is microtesla(uT) */
       Serial.print("X:");Serial.print(mag_data.x);Serial.print(" uT,Y:");Serial.print(mag_data.y);Serial.print(" uT,Z:");Serial.println(mag_data.z);
+
+      M5.Sh200Q.getGyroData(&gyroX, &gyroY, &gyroZ);
+      M5.Sh200Q.getAccelData(&accX, &accY, &accZ);
+      Serial.print("Xa:");Serial.print(accX);Serial.print(", Ya:");Serial.print(accY);Serial.print(", Za:");Serial.println(accZ);
+      Serial.print("Xg:");Serial.print(gyroX);Serial.print(", Yg:");Serial.print(gyroY);Serial.print(", Zg:");Serial.println(gyroZ);
 
     }
     delay(500);
