@@ -1,6 +1,6 @@
 clear;
 
-s = serialport("COM3",115200,"Timeout",10);
+s = serialport("COM3",115200,"Timeout",10,"FlowControl","hardware");
 data = read(s,200*(32),"uint8");
 clear s
 
