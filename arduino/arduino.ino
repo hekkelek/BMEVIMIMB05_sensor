@@ -1,4 +1,4 @@
-#include <M5StickC.h>
+#include <M5StickCPlus.h>
 #include <Wire.h>
 #include "bmm150.h"
 
@@ -218,11 +218,11 @@ float gyroZ = 0.0F;
 void setup() {
   // put your setup code here, to run once:
   M5.begin();
-  M5.Sh200Q.Init();
+  M5.Imu.Init();
   //Wire.begin(0, 26);
   M5.Lcd.setRotation(3);
   M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setCursor(0, 0, 2);
+  M5.Lcd.setCursor(40, 65, 2);
   M5.Lcd.println("BMEVIMIMB05 sensor");
   pinMode(M5_BUTTON_HOME, INPUT);
 
@@ -310,8 +310,8 @@ static int8_t get_data(struct bmm150_dev *dev) {
       /* Unit for magnetometer data is microtesla(uT) */
       //Serial.print("X:");Serial.print(mag_data.x);Serial.print(" uT,Y:");Serial.print(mag_data.y);Serial.print(" uT,Z:");Serial.println(mag_data.z);
 
-      M5.Sh200Q.getGyroData(&gyroX, &gyroY, &gyroZ);
-      M5.Sh200Q.getAccelData(&accX, &accY, &accZ);
+      M5.Imu.getGyroData(&gyroX, &gyroY, &gyroZ);
+      M5.Imu.getAccelData(&accX, &accY, &accZ);
       //Serial.print("Xa:");Serial.print(accX);Serial.print(", Ya:");Serial.print(accY);Serial.print(", Za:");Serial.println(accZ);
       //Serial.print("Xg:");Serial.print(gyroX);Serial.print(", Yg:");Serial.print(gyroY);Serial.print(", Zg:");Serial.println(gyroZ);
 
