@@ -115,6 +115,7 @@ int8_t bmm150_user_spi_reg_read(uint8_t reg_addr, uint8_t *reg_data, uint32_t le
   spi_bmm150_cs_high();
   return rslt;
 }
+
 /*!
  *  @brief This function is to select the interface between SPI and I2C.
  */
@@ -173,7 +174,7 @@ int8_t bmm150_interface_selection(struct bmm150_dev *dev) {
  * @brief This internal API prints the execution status
  */
 void bmm150_error_codes_print_result(const char api_name[], int8_t rslt) {
-  Serial.println(api_name);
+  //Serial.println(api_name);
   if (rslt != BMM150_OK) {
     //Serial.print(api_name);
 
@@ -208,12 +209,12 @@ void bmm150_error_codes_print_result(const char api_name[], int8_t rslt) {
 int8_t rslt;
 struct bmm150_dev dev;
 
-float accX = 0.0F;
-float accY = 0.0F;
-float accZ = 0.0F;
-float gyroX = 0.0F;
-float gyroY = 0.0F;
-float gyroZ = 0.0F;
+int16_t accX = 0;
+int16_t accY = 0;
+int16_t accZ = 0;
+int16_t gyroX = 0;
+int16_t gyroY = 0;
+int16_t gyroZ = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -226,7 +227,7 @@ void setup() {
   M5.Lcd.println("BMEVIMIMB05 sensor");
   pinMode(M5_BUTTON_HOME, INPUT);
 
-  //Serial.begin(115200);
+  Serial.begin(115200);
 
   rslt = bmm150_interface_selection(&dev);
   bmm150_error_codes_print_result("bmm150_interface_selection", rslt);
@@ -268,10 +269,10 @@ static int8_t set_config(struct bmm150_dev *dev) {
   bmm150_error_codes_print_result("bmm150_set_op_mode", rslt);
 
   if (rslt == BMM150_OK) {
-    /* Setting the preset mode as Low power mode
-         * i.e. data rate = 10Hz, XY-rep = 1, Z-rep = 2
+    /* Setting the preset mode as high accuracy mode
+         * i.e. data rate = 20Hz, XY-rep = 1, Z-rep = 2
          */
-    settings.preset_mode = BMM150_PRESETMODE_LOWPOWER;
+    settings.preset_mode = BMM150_PRESETMODE_HIGHACCURACY;
     rslt = bmm150_set_presetmode(&settings, dev);
     bmm150_error_codes_print_result("bmm150_set_presetmode", rslt);
 
@@ -292,7 +293,7 @@ static int8_t set_config(struct bmm150_dev *dev) {
 static int8_t get_data(struct bmm150_dev *dev) {
   /* Status of api are returned to this variable. */
   int8_t rslt;
-  uint8_t au8Packet[ 6*4 + 3*2 + 2 ];
+  uint8_t au8Packet[ 6*2 + 3*2 + 2 ];
   //int8_t idx;
 
   struct bmm150_mag_data mag_data;
@@ -310,52 +311,42 @@ static int8_t get_data(struct bmm150_dev *dev) {
       /* Unit for magnetometer data is microtesla(uT) */
       //Serial.print("X:");Serial.print(mag_data.x);Serial.print(" uT,Y:");Serial.print(mag_data.y);Serial.print(" uT,Z:");Serial.println(mag_data.z);
 
-      M5.Imu.getGyroData(&gyroX, &gyroY, &gyroZ);
-      M5.Imu.getAccelData(&accX, &accY, &accZ);
+      //M5.Imu.getGyroData(&gyroX, &gyroY, &gyroZ);
+      //M5.Imu.getAccelData(&accX, &accY, &accZ);
+      M5.Imu.getGyroAdc(&gyroX, &gyroY, &gyroZ);
+      M5.Imu.getAccelAdc(&accX, &accY, &accZ);
       //Serial.print("Xa:");Serial.print(accX);Serial.print(", Ya:");Serial.print(accY);Serial.print(", Za:");Serial.println(accZ);
       //Serial.print("Xg:");Serial.print(gyroX);Serial.print(", Yg:");Serial.print(gyroY);Serial.print(", Zg:");Serial.println(gyroZ);
 
       au8Packet[  0 ] = 0x55;
       au8Packet[  1 ] = ((uint8_t*)&accX)[ 0 ];
       au8Packet[  2 ] = ((uint8_t*)&accX)[ 1 ];
-      au8Packet[  3 ] = ((uint8_t*)&accX)[ 2 ];
-      au8Packet[  4 ] = ((uint8_t*)&accX)[ 3 ];
 
-      au8Packet[  5 ] = ((uint8_t*)&accY)[ 0 ];
-      au8Packet[  6 ] = ((uint8_t*)&accY)[ 1 ];
-      au8Packet[  7 ] = ((uint8_t*)&accY)[ 2 ];
-      au8Packet[  8 ] = ((uint8_t*)&accY)[ 3 ];
+      au8Packet[  3 ] = ((uint8_t*)&accY)[ 0 ];
+      au8Packet[  4 ] = ((uint8_t*)&accY)[ 1 ];
 
-      au8Packet[  9 ] = ((uint8_t*)&accZ)[ 0 ];
-      au8Packet[ 10 ] = ((uint8_t*)&accZ)[ 1 ];
-      au8Packet[ 11 ] = ((uint8_t*)&accZ)[ 2 ];
-      au8Packet[ 12 ] = ((uint8_t*)&accZ)[ 3 ];
+      au8Packet[  5 ] = ((uint8_t*)&accZ)[ 0 ];
+      au8Packet[  6 ] = ((uint8_t*)&accZ)[ 1 ];
 
-      au8Packet[ 13 ] = ((uint8_t*)&gyroX)[ 0 ];
-      au8Packet[ 14 ] = ((uint8_t*)&gyroX)[ 1 ];
-      au8Packet[ 15 ] = ((uint8_t*)&gyroX)[ 2 ];
-      au8Packet[ 16 ] = ((uint8_t*)&gyroX)[ 3 ];
+      au8Packet[  7 ] = ((uint8_t*)&gyroX)[ 0 ];
+      au8Packet[  8 ] = ((uint8_t*)&gyroX)[ 1 ];
 
-      au8Packet[ 17 ] = ((uint8_t*)&gyroY)[ 0 ];
-      au8Packet[ 18 ] = ((uint8_t*)&gyroY)[ 1 ];
-      au8Packet[ 19 ] = ((uint8_t*)&gyroY)[ 2 ];
-      au8Packet[ 20 ] = ((uint8_t*)&gyroY)[ 3 ];
+      au8Packet[  9 ] = ((uint8_t*)&gyroY)[ 0 ];
+      au8Packet[ 10 ] = ((uint8_t*)&gyroY)[ 1 ];
 
-      au8Packet[ 21 ] = ((uint8_t*)&gyroZ)[ 0 ];
-      au8Packet[ 22 ] = ((uint8_t*)&gyroZ)[ 1 ];
-      au8Packet[ 23 ] = ((uint8_t*)&gyroZ)[ 2 ];
-      au8Packet[ 24 ] = ((uint8_t*)&gyroZ)[ 3 ];
+      au8Packet[ 11 ] = ((uint8_t*)&gyroZ)[ 0 ];
+      au8Packet[ 12 ] = ((uint8_t*)&gyroZ)[ 1 ];
 
-      au8Packet[ 25 ] = ((uint8_t*)&mag_data.x)[ 0 ];
-      au8Packet[ 26 ] = ((uint8_t*)&mag_data.x)[ 1 ];
+      au8Packet[ 13 ] = ((uint8_t*)&mag_data.x)[ 0 ];
+      au8Packet[ 14 ] = ((uint8_t*)&mag_data.x)[ 1 ];
 
-      au8Packet[ 27 ] = ((uint8_t*)&mag_data.y)[ 0 ];
-      au8Packet[ 28 ] = ((uint8_t*)&mag_data.y)[ 1 ];
+      au8Packet[ 15 ] = ((uint8_t*)&mag_data.y)[ 0 ];
+      au8Packet[ 16 ] = ((uint8_t*)&mag_data.y)[ 1 ];
 
-      au8Packet[ 29 ] = ((uint8_t*)&mag_data.z)[ 0 ];
-      au8Packet[ 30 ] = ((uint8_t*)&mag_data.z)[ 1 ];
+      au8Packet[ 17 ] = ((uint8_t*)&mag_data.z)[ 0 ];
+      au8Packet[ 18 ] = ((uint8_t*)&mag_data.z)[ 1 ];
 
-      au8Packet[ 31 ] = 0xAA;
+      au8Packet[ 19 ] = 0xAA;
 
       Serial.write( au8Packet, sizeof(au8Packet) );
     }
