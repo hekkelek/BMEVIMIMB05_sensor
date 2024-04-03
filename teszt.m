@@ -1,13 +1,15 @@
+clc;
 clear;
 
 tic;
 s = serialport("COM3",115200,"Timeout",10,"FlowControl","hardware");
-data = read(s,200*(20),"uint8");
+data = read(s,20000*(20),"uint8");
 toc;
 clear s
 
 startIdx = find(data==85);
 
+arrayIdx = 1;
 arrAcc = zeros(1,3);
 arrGyro = zeros(1,3);
 arrMag = zeros(1,3);
@@ -15,7 +17,7 @@ arrMag = zeros(1,3);
 for i = 1:length(startIdx)
     idx = startIdx(i);
 
-    if( idx + (20)-1 >= length(data))
+    if( idx + (20)-1 > length(data))
         break;
     end
 
@@ -36,20 +38,21 @@ for i = 1:length(startIdx)
     Ym = typecast(pack8(16:17),'int16');
     Zm = typecast(pack8(18:19),'int16');
 
-    arrAcc(i,:) = [Xa Ya Za];
-    arrGyro(i,:) = [X Y Z];
-    arrMag(i,:) = [Xm Ym Zm];
+    arrAcc(arrayIdx,:) = [Xa Ya Za];
+    arrGyro(arrayIdx,:) = [X Y Z];
+    arrMag(arrayIdx,:) = [Xm Ym Zm];
+    arrayIdx = arrayIdx + 1;
 
-    disp("Xa = " + num2str(Xa));
-    disp("Ya = " + num2str(Ya));
-    disp("Za = " + num2str(Za));
-    disp("X = " + num2str(X));
-    disp("Y = " + num2str(Y));
-    disp("Z = " + num2str(Z));
-    disp("Xm = " + num2str(Xm));
-    disp("Ym = " + num2str(Ym));
-    disp("Zm = " + num2str(Zm));
-    disp('\n')
+    % disp("Xa = " + num2str(Xa));
+    % disp("Ya = " + num2str(Ya));
+    % disp("Za = " + num2str(Za));
+    % disp("X = " + num2str(X));
+    % disp("Y = " + num2str(Y));
+    % disp("Z = " + num2str(Z));
+    % disp("Xm = " + num2str(Xm));
+    % disp("Ym = " + num2str(Ym));
+    % disp("Zm = " + num2str(Zm));
+    % disp('\n')
 end
 
 % Conversion to SI units

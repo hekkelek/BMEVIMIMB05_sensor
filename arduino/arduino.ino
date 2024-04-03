@@ -205,6 +205,19 @@ void bmm150_error_codes_print_result(const char api_name[], int8_t rslt) {
   }
 }
 
+typedef struct
+{
+  int16_t accX;
+  int16_t accY;
+  int16_t accZ;
+  int16_t gyroX;
+  int16_t gyroY;
+  int16_t gyroZ;
+  int16_t magX;
+  int16_t magY;
+  int16_t magZ;
+} S_MEASUREMENTS;
+
 // Globals
 int8_t rslt;
 struct bmm150_dev dev;
@@ -216,6 +229,11 @@ int16_t gyroX = 0;
 int16_t gyroY = 0;
 int16_t gyroZ = 0;
 
+S_MEASUREMENTS gasMeasurements[ 2*60*20 ];  // 2 minutes @ 20 Hz sampling frequency
+uint32_t gu32StoredMeasurementsCount;
+bool gbStore = false;
+
+
 void setup() {
   // put your setup code here, to run once:
   M5.begin();
@@ -223,7 +241,8 @@ void setup() {
   //Wire.begin(0, 26);
   M5.Lcd.setRotation(3);
   M5.Lcd.fillScreen(BLACK);
-  M5.Lcd.setCursor(40, 65, 2);
+  //M5.Lcd.setTextSize(1);
+  M5.Lcd.setCursor(40, 63, 2);
   M5.Lcd.println("BMEVIMIMB05 sensor");
   pinMode(M5_BUTTON_HOME, INPUT);
 
@@ -294,17 +313,79 @@ static int8_t get_data(struct bmm150_dev *dev) {
   /* Status of api are returned to this variable. */
   int8_t rslt;
   uint8_t au8Packet[ 6*2 + 3*2 + 2 ];
+  uint32_t i;
+  bool bTemp;
   //int8_t idx;
 
   struct bmm150_mag_data mag_data;
 
   /* Reading the mag data */
   while (1) {
+    M5.update();
+
     /* Get the interrupt status */
     rslt = bmm150_get_interrupt_status(dev);
 
+    bTemp = M5.BtnA.wasPressed();
+    if( ( false == gbStore ) && bTemp )
+    {
+      M5.Lcd.setCursor(40, 77, 2);
+      M5.Lcd.println("Storage mode ");
+      gbStore = true;
+      gu32StoredMeasurementsCount = 0u;
+    }
+    else if( ( true == gbStore ) && bTemp )
+    {
+      M5.Lcd.setCursor(40, 77, 2);
+      M5.Lcd.println("Stopped.      ");
+      gbStore = false;
+    }
+
+    if( M5.BtnB.wasPressed() )
+    {
+      M5.Lcd.setCursor(40, 77, 2);
+      M5.Lcd.println("Sending mem.  ");
+      for( i = 0u; i < gu32StoredMeasurementsCount; i++ )
+      {
+        au8Packet[  0 ] = 0x55;
+        au8Packet[  1 ] = ((uint8_t*)&gasMeasurements[ i ].accX)[ 0 ];
+        au8Packet[  2 ] = ((uint8_t*)&gasMeasurements[ i ].accX)[ 1 ];
+
+        au8Packet[  3 ] = ((uint8_t*)&gasMeasurements[ i ].accY)[ 0 ];
+        au8Packet[  4 ] = ((uint8_t*)&gasMeasurements[ i ].accY)[ 1 ];
+
+        au8Packet[  5 ] = ((uint8_t*)&gasMeasurements[ i ].accZ)[ 0 ];
+        au8Packet[  6 ] = ((uint8_t*)&gasMeasurements[ i ].accZ)[ 1 ];
+
+        au8Packet[  7 ] = ((uint8_t*)&gasMeasurements[ i ].gyroX)[ 0 ];
+        au8Packet[  8 ] = ((uint8_t*)&gasMeasurements[ i ].gyroX)[ 1 ];
+
+        au8Packet[  9 ] = ((uint8_t*)&gasMeasurements[ i ].gyroY)[ 0 ];
+        au8Packet[ 10 ] = ((uint8_t*)&gasMeasurements[ i ].gyroY)[ 1 ];
+
+        au8Packet[ 11 ] = ((uint8_t*)&gasMeasurements[ i ].gyroZ)[ 0 ];
+        au8Packet[ 12 ] = ((uint8_t*)&gasMeasurements[ i ].gyroZ)[ 1 ];
+
+        au8Packet[ 13 ] = ((uint8_t*)&gasMeasurements[ i ].magX)[ 0 ];
+        au8Packet[ 14 ] = ((uint8_t*)&gasMeasurements[ i ].magX)[ 1 ];
+
+        au8Packet[ 15 ] = ((uint8_t*)&gasMeasurements[ i ].magY)[ 0 ];
+        au8Packet[ 16 ] = ((uint8_t*)&gasMeasurements[ i ].magY)[ 1 ];
+
+        au8Packet[ 17 ] = ((uint8_t*)&gasMeasurements[ i ].magZ)[ 0 ];
+        au8Packet[ 18 ] = ((uint8_t*)&gasMeasurements[ i ].magZ)[ 1 ];
+
+        au8Packet[ 19 ] = 0xAA;
+
+        Serial.write( au8Packet, sizeof(au8Packet) );
+      }
+      M5.Lcd.setCursor(40, 77, 2);
+      M5.Lcd.println("Memory sent.  ");
+    }
+
     if (dev->int_status & BMM150_INT_ASSERTED_DRDY) {
       //Serial.println("Data interrupt occurred");
+
       /* Read mag data */
       rslt = bmm150_read_mag_data(&mag_data, dev);
 
@@ -318,40 +399,65 @@ static int8_t get_data(struct bmm150_dev *dev) {
       //Serial.print("Xa:");Serial.print(accX);Serial.print(", Ya:");Serial.print(accY);Serial.print(", Za:");Serial.println(accZ);
       //Serial.print("Xg:");Serial.print(gyroX);Serial.print(", Yg:");Serial.print(gyroY);Serial.print(", Zg:");Serial.println(gyroZ);
 
-      au8Packet[  0 ] = 0x55;
-      au8Packet[  1 ] = ((uint8_t*)&accX)[ 0 ];
-      au8Packet[  2 ] = ((uint8_t*)&accX)[ 1 ];
+      // Direct sampling and sending mode
+      if( ( false == gbStore ) && ( 0u == gu32StoredMeasurementsCount ) )
+      {
+        au8Packet[  0 ] = 0x55;
+        au8Packet[  1 ] = ((uint8_t*)&accX)[ 0 ];
+        au8Packet[  2 ] = ((uint8_t*)&accX)[ 1 ];
 
-      au8Packet[  3 ] = ((uint8_t*)&accY)[ 0 ];
-      au8Packet[  4 ] = ((uint8_t*)&accY)[ 1 ];
+        au8Packet[  3 ] = ((uint8_t*)&accY)[ 0 ];
+        au8Packet[  4 ] = ((uint8_t*)&accY)[ 1 ];
 
-      au8Packet[  5 ] = ((uint8_t*)&accZ)[ 0 ];
-      au8Packet[  6 ] = ((uint8_t*)&accZ)[ 1 ];
+        au8Packet[  5 ] = ((uint8_t*)&accZ)[ 0 ];
+        au8Packet[  6 ] = ((uint8_t*)&accZ)[ 1 ];
 
-      au8Packet[  7 ] = ((uint8_t*)&gyroX)[ 0 ];
-      au8Packet[  8 ] = ((uint8_t*)&gyroX)[ 1 ];
+        au8Packet[  7 ] = ((uint8_t*)&gyroX)[ 0 ];
+        au8Packet[  8 ] = ((uint8_t*)&gyroX)[ 1 ];
 
-      au8Packet[  9 ] = ((uint8_t*)&gyroY)[ 0 ];
-      au8Packet[ 10 ] = ((uint8_t*)&gyroY)[ 1 ];
+        au8Packet[  9 ] = ((uint8_t*)&gyroY)[ 0 ];
+        au8Packet[ 10 ] = ((uint8_t*)&gyroY)[ 1 ];
 
-      au8Packet[ 11 ] = ((uint8_t*)&gyroZ)[ 0 ];
-      au8Packet[ 12 ] = ((uint8_t*)&gyroZ)[ 1 ];
+        au8Packet[ 11 ] = ((uint8_t*)&gyroZ)[ 0 ];
+        au8Packet[ 12 ] = ((uint8_t*)&gyroZ)[ 1 ];
 
-      au8Packet[ 13 ] = ((uint8_t*)&mag_data.x)[ 0 ];
-      au8Packet[ 14 ] = ((uint8_t*)&mag_data.x)[ 1 ];
+        au8Packet[ 13 ] = ((uint8_t*)&mag_data.x)[ 0 ];
+        au8Packet[ 14 ] = ((uint8_t*)&mag_data.x)[ 1 ];
 
-      au8Packet[ 15 ] = ((uint8_t*)&mag_data.y)[ 0 ];
-      au8Packet[ 16 ] = ((uint8_t*)&mag_data.y)[ 1 ];
+        au8Packet[ 15 ] = ((uint8_t*)&mag_data.y)[ 0 ];
+        au8Packet[ 16 ] = ((uint8_t*)&mag_data.y)[ 1 ];
 
-      au8Packet[ 17 ] = ((uint8_t*)&mag_data.z)[ 0 ];
-      au8Packet[ 18 ] = ((uint8_t*)&mag_data.z)[ 1 ];
+        au8Packet[ 17 ] = ((uint8_t*)&mag_data.z)[ 0 ];
+        au8Packet[ 18 ] = ((uint8_t*)&mag_data.z)[ 1 ];
 
-      au8Packet[ 19 ] = 0xAA;
+        au8Packet[ 19 ] = 0xAA;
 
-      Serial.write( au8Packet, sizeof(au8Packet) );
+        Serial.write( au8Packet, sizeof(au8Packet) );
+      }
+      else if( true == gbStore )
+      {
+        // if there's still room for measurements
+        if( ( sizeof( gasMeasurements )/sizeof( S_MEASUREMENTS ) ) > gu32StoredMeasurementsCount )
+        {
+          gasMeasurements[ gu32StoredMeasurementsCount ].accX = accX;
+          gasMeasurements[ gu32StoredMeasurementsCount ].accY = accY;
+          gasMeasurements[ gu32StoredMeasurementsCount ].accZ = accZ;
+          gasMeasurements[ gu32StoredMeasurementsCount ].gyroX = gyroX;
+          gasMeasurements[ gu32StoredMeasurementsCount ].gyroY = gyroY;
+          gasMeasurements[ gu32StoredMeasurementsCount ].gyroZ = gyroZ;
+          gasMeasurements[ gu32StoredMeasurementsCount ].magX = mag_data.x;
+          gasMeasurements[ gu32StoredMeasurementsCount ].magY = mag_data.y;
+          gasMeasurements[ gu32StoredMeasurementsCount ].magZ = mag_data.z;
+          gu32StoredMeasurementsCount++;
+        }
+        else
+        {
+          M5.Lcd.setCursor(40, 77, 2);
+          M5.Lcd.println("Storage full. ");
+          gbStore = false;
+        }
+      }
     }
-    //delay(500);
-    //break;
   }
 
   return rslt;
